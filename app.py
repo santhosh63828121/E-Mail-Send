@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from flask_mail import Mail, Message # type: ignore
+from flask_mail import Mail, Message  # type: ignore
 from config import Config
 
 # Initialize Flask App
@@ -25,7 +25,7 @@ class AppointmentDoc(db.Model):
     date = db.Column(db.String(50), nullable=False)
     time = db.Column(db.String(50), nullable=False)
 
-# Create database tables
+# Create database tables inside the app context
 with app.app_context():
     db.create_all()
 
@@ -41,48 +41,53 @@ def handle_options():
 # API: Book an Appointment
 @app.route("/api/book-appointment", methods=["POST"])
 def book_appointment():
-    data = request.json
-    new_appointment = AppointmentDoc(
-        name=data["name"],
-        age=data["age"],
-        email=data["email"],
-        problem=data["problem"],
-        date=data["date"],
-        time=data["time"]
-    )
-    db.session.add(new_appointment)
-    db.session.commit()
+    try:
+        data = request.json
 
-    # Send email notification
-    doctor_email = "sksk20634@gmail.com"  
-    subject = "New Appointment Confirmation"
+        new_appointment = AppointmentDoc(
+            name=data["name"],
+            age=data["age"],
+            email=data["email"],
+            problem=data["problem"],
+            date=data["date"],
+            time=data["time"]
+        )
+        db.session.add(new_appointment)
+        db.session.commit()
 
-    message_body = f"""
-    Hello {data["name"]},
-    
-    Your appointment has been booked successfully.
-    
-    Details:
-    - Age: {data["age"]}
-    - Problem: {data["problem"]}
-    - Date: {data["date"]}
-    - Time: {data["time"]}
+        # Send email notification
+        doctor_email = "sksk20634@gmail.com"
+        subject = "New Appointment Confirmation"
 
-    Regards,
-    Clinic Team
-    """
+        message_body = f"""
+        Hello {data["name"]},
+        
+        Your appointment has been booked successfully.
+        
+        Details:
+        - Age: {data["age"]}
+        - Problem: {data["problem"]}
+        - Date: {data["date"]}
+        - Time: {data["time"]}
 
-    # Send email to patient
-    msg_patient = Message(subject, sender=app.config["MAIL_USERNAME"], recipients=[data["email"]])
-    msg_patient.body = message_body
-    mail.send(msg_patient)
+        Regards,
+        Clinic Team
+        """
 
-    # Send email to doctor
-    msg_doctor = Message(f"New Appointment - {data['name']}", sender=app.config["MAIL_USERNAME"], recipients=[doctor_email])
-    msg_doctor.body = f"New appointment booked:\n\n{message_body}"
-    mail.send(msg_doctor)
+        # Send email to patient
+        msg_patient = Message(subject, sender=app.config["MAIL_USERNAME"], recipients=[data["email"]])
+        msg_patient.body = message_body
+        mail.send(msg_patient)
 
-    return jsonify({"message": "Appointment booked successfully"}), 201
+        # Send email to doctor
+        msg_doctor = Message(f"New Appointment - {data['name']}", sender=app.config["MAIL_USERNAME"], recipients=[doctor_email])
+        msg_doctor.body = f"New appointment booked:\n\n{message_body}"
+        mail.send(msg_doctor)
+
+        return jsonify({"message": "Appointment booked successfully"}), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # API: Fetch All Appointments
 @app.route("/api/appointments", methods=["GET"])
